@@ -1,6 +1,8 @@
 ﻿using CityInfo.API.Models;
+using CityInfo.API.Services;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,13 +14,32 @@ namespace CityInfo.API.Controllers
     [Route("api/cities/{cityId}/pointsofinterest")]
     public class PointsOfInterestsController : ControllerBase
     {
+        private ILogger<PointsOfInterestsController> _logger;
+        private IMailService _localMailService;
+
+        public PointsOfInterestsController(ILogger<PointsOfInterestsController> logger, IMailService localMailService)
+        {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _localMailService = localMailService ?? throw new ArgumentNullException(nameof(localMailService));
+        }
+
         [HttpGet]
         public IActionResult GetPointsOfInterests(int cityId)
         {
-            var city = CitiesDataStore.Current.Cities.FirstOrDefault(c => c.Id == cityId);
-            if (city == null) return NotFound();
 
-            return Ok(city.PointsOfInterests);
+            try
+            {
+                var city = CitiesDataStore.Current.Cities.FirstOrDefault(c => c.Id == cityId);
+                if (city == null) return NotFound();
+
+                return Ok(city.PointsOfInterests);
+            }
+            catch (Exception e)
+            {
+                _logger.LogCritical($"Exception while getting points of interest for city with id {cityId}", e);
+                return StatusCode(500, "A problem happened while handling your request.");
+            }
+            
         }
 
         [HttpGet("{id}", Name = "GetPointOfInterest")]
@@ -83,7 +104,7 @@ namespace CityInfo.API.Controllers
         }
 
         [HttpPatch("{id}")]
-        public IActionResult PartiallyUpdatePointOfInterest(int cityId, int id [FromBody] JsonPatchDocument<PointsOfInterestDto> patchDoc)
+        public IActionResult PartiallyUpdatePointOfInterest(int cityId, int id, [FromBody] JsonPatchDocument<PointsOfInterestDto> patchDoc)
         {
            
             var city = CitiesDataStore.Current.Cities.FirstOrDefault(c => c.Id == cityId);
@@ -125,6 +146,8 @@ namespace CityInfo.API.Controllers
             if (point == null) return NotFound();
 
             city.PointsOfInterests.Remove(point);
+
+            _localMailService.Send("Point of interest deleted.", $"Point of interest {point.Name} with id {point.Id} was deleted.");
 
             return NoContent();
         }
