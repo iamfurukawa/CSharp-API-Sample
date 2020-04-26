@@ -1,4 +1,5 @@
-﻿using CityInfo.API.Context;
+﻿using AutoMapper;
+using CityInfo.API.Context;
 using CityInfo.API.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -6,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Formatters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Newtonsoft.Json.Serialization;
 using System;
 
 namespace CityInfo.API
@@ -26,16 +28,10 @@ namespace CityInfo.API
                 .AddMvcOptions(o =>
                 {
                     o.OutputFormatters.Add(new XmlDataContractSerializerOutputFormatter());
-                });
-            /*
-            .AddJsonOptions( o =>
-            {
-                if(o.SerializerSettings.ContractResolver != null)
-                {
-                    var castedResolver = o.SerializerSettings.ContractResolver as DefaultContractResolver;
-                    castedResolver.NamingStrategy = null;
-                }
-            });*/
+                })
+                .AddJsonOptions(
+                    options => options.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore
+                );
 #if DEBUG
             services.AddTransient<IMailService, LocalMailService>();
 #else
@@ -46,6 +42,10 @@ namespace CityInfo.API
             {
                 o.UseSqlServer(connectionString);
             });
+
+            services.AddScoped<ICityInfoRepository, CityInfoRepository>();
+
+            services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
